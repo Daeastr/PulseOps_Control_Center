@@ -1,0 +1,116 @@
+{
+  "id": "pulseops",
+  "name": "PulseOps Control Center",
+  "description": "Monitor stream health and manage incident response using metadata-defined pages and workflows.",
+  "status": "ONBOARDED_ACROSS_TRIO",
+  "version": "1.0",
+  "industry": "Streaming Operations / Platform Engineering",
+  "appUrl": "https://pulseops.example.com",
+  "simustream": {
+    "landingPageUrl": "https://simustream.example.com/pulseops/landing",
+    "scaledSimulationUrl": "https://simustream.example.com/pulseops/scaled-sim",
+    "scaledSimulationAccessNotes": "Provisioned for onboarding — public access, no auth required"
+  },
+  "requestFramePermissions": [],
+  "architecture": {
+    "type": "metadata-driven",
+    "coreModules": [
+      "Stream Health Monitor",
+      "Incident Response Workflow",
+      "Audit Log",
+      "Nav Router",
+      "Form Engine"
+    ],
+    "executionModel": "server-rendered",
+    "containerRuntime": null,
+    "supportsGPUAcceleration": false,
+    "zeroTrust": false
+  },
+  "inference": {
+    "selfHosted": false,
+    "supportedBackends": [],
+    "modelRegistryRequired": false,
+    "modelVersioning": false,
+    "hotSwapSupported": false
+  },
+  "build": {
+    "enabled": true,
+    "strategy": "platform-default",
+    "runtime": "Node.js",
+    "buildCommand": "npm run build",
+    "testCommand": "npm run test",
+    "artifactSigningRequired": false,
+    "versioning": "semver"
+  },
+  "deploy": {
+    "enabled": true,
+    "environments": [
+      {
+        "name": "local",
+        "target": "local",
+        "autoDeploy": false,
+        "approvalRequired": false,
+        "highAvailability": false,
+        "autoscaling": false,
+        "rollbackStrategy": "manual"
+      },
+      {
+        "name": "preview",
+        "target": "preview",
+        "autoDeploy": true,
+        "approvalRequired": false,
+        "highAvailability": false,
+        "autoscaling": false,
+        "rollbackStrategy": "automatic"
+      },
+      {
+        "name": "prod",
+        "target": "production",
+        "autoDeploy": false,
+        "approvalRequired": true,
+        "highAvailability": true,
+        "autoscaling": true,
+        "rollbackStrategy": "automatic"
+      }
+    ]
+  },
+  "governance": {
+    "policyEngine": "metadata-policy",
+    "requirePolicyBinding": true,
+    "runtimeDriftDetection": true,
+    "hardwareAccessLogging": false,
+    "humanApprovalRequiredFor": [
+      "Resolve Incident"
+    ]
+  },
+  "hardware": {
+    "supportsCPU": true,
+    "supportsGPU": false,
+    "supportsEdgeDevices": false,
+    "resourceScheduling": null,
+    "isolationMode": null
+  },
+  "scalingProfile": {
+    "mode": null,
+    "enterpriseUpgradePath": null,
+    "complianceUpgradeReady": [],
+    "multiTenantReady": false
+  },
+  "tutorial": {
+    "url": null,
+    "status": "COMING_SOON"
+  },
+  "demo": {
+    "url": null
+  },
+  "tags": [
+    "streaming-ops",
+    "incident-response",
+    "monitoring",
+    "workflow-automation",
+    "metadata-driven"
+  ],
+  "targetMarket": "Operations teams and platform engineers managing real-time stream health and incident lifecycle",
+  "subscriptionModel": "Enterprise SaaS",
+  "supportContact": "https://github.com/Daeastr/PulseOps_Control_Center/issues"
+}
