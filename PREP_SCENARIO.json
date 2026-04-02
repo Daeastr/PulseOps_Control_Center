@@ -518,6 +518,21 @@
           }
         }
       ]
+    },
+    {
+      "id": "deployment",
+      "name": "Deployment",
+      "route": "/deployment",
+      "description": "View and manage deployment environments for PulseOps Control Center.",
+      "inputs": [],
+      "actions": [],
+      "ui_states": {
+        "loading": "Skeleton rows while environment data loads.",
+        "empty": "No deployment environments configured.",
+        "error": "Banner: 'Failed to load deployment data.'",
+        "success": "Table of deployment environments with status and configuration."
+      },
+      "api_calls": []
     }
   ],
 
@@ -525,7 +540,8 @@
     "primary_nav": [
       { "label": "Stream Health", "route": "/streams", "screen_id": "stream_health_monitor" },
       { "label": "Incidents", "route": "/incidents", "screen_id": "incident_list" },
-      { "label": "Audit Log", "route": "/audit", "screen_id": "audit_log" }
+      { "label": "Audit Log", "route": "/audit", "screen_id": "audit_log" },
+      { "label": "Deployment", "route": "/deployment", "screen_id": "deployment" }
     ],
     "flows": [
       {
