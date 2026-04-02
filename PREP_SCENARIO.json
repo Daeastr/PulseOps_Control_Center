@@ -1,0 +1,746 @@
+{
+  "app_name": "PulseOps Control Center",
+  "app_id": "pulseops",
+  "version": "1.0",
+  "description": "Monitor stream health and manage incident response using metadata-defined pages and workflows.",
+  "generated_at": "2026-04-02T02:11:37.765Z",
+  "source_files": [
+    "trio/onboarding.json",
+    "scripts/build.js",
+    "package.json"
+  ],
+
+  "screens": [
+    {
+      "id": "stream_health_monitor",
+      "name": "Stream Health Monitor",
+      "route": "/streams",
+      "description": "Displays real-time health status of all monitored streams.",
+      "inputs": [
+        {
+          "id": "stream_filter",
+          "type": "text",
+          "label": "Filter streams by name or ID",
+          "required": false,
+          "validation": null
+        },
+        {
+          "id": "status_filter",
+          "type": "dropdown",
+          "label": "Filter by status",
+          "options": ["All", "Healthy", "Degraded", "Critical", "Unknown"],
+          "required": false
+        },
+        {
+          "id": "time_range_selector",
+          "type": "dropdown",
+          "label": "Time range",
+          "options": ["Last 5 minutes", "Last 15 minutes", "Last 1 hour", "Last 24 hours", "Custom"],
+          "required": false
+        }
+      ],
+      "actions": [
+        {
+          "id": "refresh_streams",
+          "type": "button",
+          "label": "Refresh",
+          "description": "Manually refreshes the stream health data."
+        },
+        {
+          "id": "view_stream_detail",
+          "type": "link",
+          "label": "View stream details",
+          "description": "Navigates to the stream detail view for a specific stream.",
+          "navigates_to": "stream_detail"
+        },
+        {
+          "id": "raise_incident",
+          "type": "button",
+          "label": "Raise Incident",
+          "description": "Opens the Incident Response Workflow for a selected stream.",
+          "navigates_to": "incident_response_workflow"
+        }
+      ],
+      "ui_states": {
+        "loading": "Skeleton rows shown while stream data is fetched.",
+        "empty": "No streams found. Message: 'No streams match your filter.' with a reset-filter action.",
+        "error": "Banner: 'Failed to load stream data. Retry?' with a retry button.",
+        "success": "Stream list rendered with health indicators (green/yellow/red)."
+      },
+      "api_calls": [
+        {
+          "id": "get_streams",
+          "method": "GET",
+          "endpoint": "/api/streams",
+          "query_params": ["filter", "status", "from", "to"],
+          "response_shape": {
+            "streams": [
+              {
+                "id": "string",
+                "name": "string",
+                "status": "healthy | degraded | critical | unknown",
+                "latency_ms": "number",
+                "error_rate": "number",
+                "last_updated": "ISO8601"
+              }
+            ],
+            "total": "number"
+          },
+          "error_handling": {
+            "timeout": "Show error banner, allow retry",
+            "5xx": "Show error banner, allow retry",
+            "4xx": "Show inline error message"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stream_detail",
+      "name": "Stream Detail",
+      "route": "/streams/:streamId",
+      "description": "Shows detailed metrics and history for a single stream.",
+      "inputs": [
+        {
+          "id": "metric_selector",
+          "type": "dropdown",
+          "label": "Metric",
+          "options": ["Latency", "Error Rate", "Throughput", "Availability"],
+          "required": false
+        },
+        {
+          "id": "time_range_selector",
+          "type": "dropdown",
+          "label": "Time range",
+          "options": ["Last 5 minutes", "Last 15 minutes", "Last 1 hour", "Last 24 hours"],
+          "required": false
+        }
+      ],
+      "actions": [
+        {
+          "id": "back_to_monitor",
+          "type": "link",
+          "label": "Back to Stream Health Monitor",
+          "navigates_to": "stream_health_monitor"
+        },
+        {
+          "id": "raise_incident_from_detail",
+          "type": "button",
+          "label": "Raise Incident",
+          "navigates_to": "incident_response_workflow"
+        },
+        {
+          "id": "view_audit_log",
+          "type": "link",
+          "label": "View Audit Log",
+          "navigates_to": "audit_log"
+        }
+      ],
+      "ui_states": {
+        "loading": "Spinner shown while metric data loads.",
+        "empty": "Message: 'No metric data available for this range.'",
+        "error": "Banner: 'Could not load stream details. Retry?'",
+        "success": "Charts and metric cards rendered."
+      },
+      "api_calls": [
+        {
+          "id": "get_stream_detail",
+          "method": "GET",
+          "endpoint": "/api/streams/:streamId",
+          "response_shape": {
+            "id": "string",
+            "name": "string",
+            "status": "string",
+            "metrics": {
+              "latency_ms": "number[]",
+              "error_rate": "number[]",
+              "throughput": "number[]",
+              "availability": "number[]",
+              "timestamps": "ISO8601[]"
+            }
+          },
+          "error_handling": {
+            "404": "Show 'Stream not found' message with back navigation",
+            "timeout": "Show error banner, allow retry",
+            "5xx": "Show error banner, allow retry"
+          }
+        }
+      ]
+    },
+    {
+      "id": "incident_response_workflow",
+      "name": "Incident Response Workflow",
+      "route": "/incidents/new",
+      "description": "Multi-step workflow to create, triage, and resolve incidents.",
+      "steps": [
+        {
+          "step": 1,
+          "name": "Create Incident",
+          "inputs": [
+            {
+              "id": "incident_title",
+              "type": "text",
+              "label": "Incident Title",
+              "required": true,
+              "validation": "Non-empty, max 200 characters"
+            },
+            {
+              "id": "severity",
+              "type": "dropdown",
+              "label": "Severity",
+              "options": ["P1 – Critical", "P2 – High", "P3 – Medium", "P4 – Low"],
+              "required": true
+            },
+            {
+              "id": "affected_streams",
+              "type": "multi-select",
+              "label": "Affected Streams",
+              "required": true,
+              "validation": "At least one stream must be selected"
+            },
+            {
+              "id": "description",
+              "type": "textarea",
+              "label": "Description",
+              "required": false,
+              "validation": "Max 2000 characters"
+            }
+          ],
+          "actions": [
+            {
+              "id": "submit_incident",
+              "type": "button",
+              "label": "Create Incident",
+              "description": "Submits the new incident and moves to the triage step."
+            },
+            {
+              "id": "cancel",
+              "type": "button",
+              "label": "Cancel",
+              "navigates_to": "stream_health_monitor"
+            }
+          ]
+        },
+        {
+          "step": 2,
+          "name": "Triage",
+          "inputs": [
+            {
+              "id": "assignee",
+              "type": "dropdown",
+              "label": "Assignee",
+              "required": true,
+              "validation": "Must select a valid on-call engineer"
+            },
+            {
+              "id": "runbook_link",
+              "type": "text",
+              "label": "Runbook URL",
+              "required": false,
+              "validation": "Valid URL if provided"
+            },
+            {
+              "id": "triage_notes",
+              "type": "textarea",
+              "label": "Triage Notes",
+              "required": false
+            }
+          ],
+          "actions": [
+            {
+              "id": "assign_and_continue",
+              "type": "button",
+              "label": "Assign & Continue"
+            },
+            {
+              "id": "back_to_create",
+              "type": "button",
+              "label": "Back"
+            }
+          ]
+        },
+        {
+          "step": 3,
+          "name": "Resolve Incident",
+          "description": "Requires human approval per governance policy.",
+          "governance": {
+            "humanApprovalRequired": true,
+            "policy": "metadata-policy"
+          },
+          "inputs": [
+            {
+              "id": "resolution_summary",
+              "type": "textarea",
+              "label": "Resolution Summary",
+              "required": true,
+              "validation": "Non-empty, max 2000 characters"
+            },
+            {
+              "id": "root_cause",
+              "type": "dropdown",
+              "label": "Root Cause Category",
+              "options": [
+                "Infrastructure",
+                "Application Bug",
+                "Configuration Error",
+                "Third-party Dependency",
+                "Unknown"
+              ],
+              "required": true
+            },
+            {
+              "id": "follow_up_required",
+              "type": "toggle",
+              "label": "Follow-up action required?",
+              "required": false
+            }
+          ],
+          "actions": [
+            {
+              "id": "submit_resolution",
+              "type": "button",
+              "label": "Submit for Approval",
+              "description": "Sends resolution to approver. Incident remains open until approved."
+            },
+            {
+              "id": "back_to_triage",
+              "type": "button",
+              "label": "Back"
+            }
+          ]
+        }
+      ],
+      "ui_states": {
+        "loading": "Spinner while incident data or assignee list loads.",
+        "validation_error": "Inline field errors for required fields and format violations.",
+        "awaiting_approval": "Banner: 'Resolution pending approval. You will be notified when approved.'",
+        "approved": "Green banner: 'Incident resolved.' with link to Audit Log.",
+        "rejected": "Red banner: 'Approval rejected. Reason: [reason].' Allows re-submission.",
+        "error": "Banner: 'Failed to submit incident. Retry?'"
+      },
+      "api_calls": [
+        {
+          "id": "create_incident",
+          "method": "POST",
+          "endpoint": "/api/incidents",
+          "request_shape": {
+            "title": "string",
+            "severity": "string",
+            "affected_streams": "string[]",
+            "description": "string"
+          },
+          "response_shape": {
+            "incident_id": "string",
+            "status": "open"
+          },
+          "error_handling": {
+            "400": "Show field-level validation errors",
+            "5xx": "Show generic error banner, allow retry"
+          }
+        },
+        {
+          "id": "update_incident_triage",
+          "method": "PATCH",
+          "endpoint": "/api/incidents/:incidentId/triage",
+          "request_shape": {
+            "assignee": "string",
+            "runbook_link": "string",
+            "triage_notes": "string"
+          },
+          "error_handling": {
+            "404": "Incident not found — return to list",
+            "5xx": "Show error banner, allow retry"
+          }
+        },
+        {
+          "id": "resolve_incident",
+          "method": "POST",
+          "endpoint": "/api/incidents/:incidentId/resolve",
+          "request_shape": {
+            "resolution_summary": "string",
+            "root_cause": "string",
+            "follow_up_required": "boolean"
+          },
+          "response_shape": {
+            "incident_id": "string",
+            "status": "awaiting_approval | resolved"
+          },
+          "error_handling": {
+            "403": "Approval required — show approval pending state",
+            "5xx": "Show error banner, allow retry"
+          }
+        }
+      ]
+    },
+    {
+      "id": "incident_list",
+      "name": "Incident List",
+      "route": "/incidents",
+      "description": "Lists all past and active incidents.",
+      "inputs": [
+        {
+          "id": "status_filter",
+          "type": "dropdown",
+          "label": "Status",
+          "options": ["All", "Open", "Awaiting Approval", "Resolved", "Closed"],
+          "required": false
+        },
+        {
+          "id": "severity_filter",
+          "type": "dropdown",
+          "label": "Severity",
+          "options": ["All", "P1", "P2", "P3", "P4"],
+          "required": false
+        },
+        {
+          "id": "search",
+          "type": "text",
+          "label": "Search incidents",
+          "required": false
+        }
+      ],
+      "actions": [
+        {
+          "id": "view_incident",
+          "type": "link",
+          "label": "View Incident",
+          "navigates_to": "incident_response_workflow"
+        },
+        {
+          "id": "new_incident",
+          "type": "button",
+          "label": "New Incident",
+          "navigates_to": "incident_response_workflow"
+        }
+      ],
+      "ui_states": {
+        "loading": "Skeleton rows while list loads.",
+        "empty": "Message: 'No incidents found.'",
+        "error": "Banner: 'Failed to load incidents. Retry?'",
+        "success": "Incident table rendered."
+      },
+      "api_calls": [
+        {
+          "id": "list_incidents",
+          "method": "GET",
+          "endpoint": "/api/incidents",
+          "query_params": ["status", "severity", "search", "page", "limit"],
+          "response_shape": {
+            "incidents": [
+              {
+                "id": "string",
+                "title": "string",
+                "severity": "string",
+                "status": "string",
+                "assignee": "string",
+                "created_at": "ISO8601",
+                "resolved_at": "ISO8601 | null"
+              }
+            ],
+            "total": "number",
+            "page": "number"
+          }
+        }
+      ]
+    },
+    {
+      "id": "audit_log",
+      "name": "Audit Log",
+      "route": "/audit",
+      "description": "Read-only chronological log of all system and user actions.",
+      "inputs": [
+        {
+          "id": "actor_filter",
+          "type": "text",
+          "label": "Filter by actor (user or system)",
+          "required": false
+        },
+        {
+          "id": "action_type_filter",
+          "type": "dropdown",
+          "label": "Action Type",
+          "options": [
+            "All",
+            "Incident Created",
+            "Incident Assigned",
+            "Incident Resolved",
+            "Approval Granted",
+            "Approval Rejected",
+            "Stream Status Changed"
+          ],
+          "required": false
+        },
+        {
+          "id": "date_range",
+          "type": "date-range",
+          "label": "Date range",
+          "required": false
+        }
+      ],
+      "actions": [
+        {
+          "id": "export_audit_log",
+          "type": "button",
+          "label": "Export CSV",
+          "description": "Downloads filtered audit log as a CSV file."
+        },
+        {
+          "id": "view_incident_from_log",
+          "type": "link",
+          "label": "View Related Incident",
+          "navigates_to": "incident_response_workflow"
+        }
+      ],
+      "ui_states": {
+        "loading": "Skeleton rows while log loads.",
+        "empty": "Message: 'No audit events match your filters.'",
+        "error": "Banner: 'Failed to load audit log. Retry?'",
+        "success": "Paginated table of audit events."
+      },
+      "api_calls": [
+        {
+          "id": "get_audit_log",
+          "method": "GET",
+          "endpoint": "/api/audit",
+          "query_params": ["actor", "action_type", "from", "to", "page", "limit"],
+          "response_shape": {
+            "events": [
+              {
+                "id": "string",
+                "timestamp": "ISO8601",
+                "actor": "string",
+                "action": "string",
+                "entity_type": "string",
+                "entity_id": "string",
+                "details": "object"
+              }
+            ],
+            "total": "number"
+          }
+        }
+      ]
+    }
+  ],
+
+  "navigation": {
+    "primary_nav": [
+      { "label": "Stream Health", "route": "/streams", "screen_id": "stream_health_monitor" },
+      { "label": "Incidents", "route": "/incidents", "screen_id": "incident_list" },
+      { "label": "Audit Log", "route": "/audit", "screen_id": "audit_log" }
+    ],
+    "flows": [
+      {
+        "id": "stream_to_incident",
+        "description": "User sees a degraded stream and raises an incident.",
+        "steps": ["stream_health_monitor", "stream_detail", "incident_response_workflow"]
+      },
+      {
+        "id": "direct_incident_creation",
+        "description": "User creates an incident directly from the Incident List.",
+        "steps": ["incident_list", "incident_response_workflow"]
+      },
+      {
+        "id": "incident_resolution_with_approval",
+        "description": "Operator completes triage and submits resolution for human approval.",
+        "steps": ["incident_list", "incident_response_workflow (step 2)", "incident_response_workflow (step 3)", "audit_log"]
+      },
+      {
+        "id": "audit_review",
+        "description": "Admin reviews all actions taken during an incident.",
+        "steps": ["audit_log", "incident_response_workflow"]
+      }
+    ]
+  },
+
+  "scenarios": {
+    "happy_path": {
+      "id": "happy_path",
+      "name": "Happy Path — Full Incident Lifecycle",
+      "description": "User monitors streams, detects a degraded stream, raises an incident, triages it, and resolves it with approval.",
+      "steps": [
+        {
+          "step": 1,
+          "screen": "stream_health_monitor",
+          "action": "User loads the dashboard. Stream list loads successfully.",
+          "input": null,
+          "expected_outcome": "Stream list renders with health indicators. One stream shows 'Degraded' status."
+        },
+        {
+          "step": 2,
+          "screen": "stream_detail",
+          "action": "User clicks 'View stream details' on the degraded stream.",
+          "input": { "stream_id": "stream-42" },
+          "expected_outcome": "Detail page loads. Charts show elevated latency over the last 15 minutes."
+        },
+        {
+          "step": 3,
+          "screen": "incident_response_workflow",
+          "action": "User clicks 'Raise Incident'. Fills in title, selects P2 severity, selects affected stream, adds description.",
+          "input": {
+            "incident_title": "Stream-42 elevated latency — possible upstream congestion",
+            "severity": "P2 – High",
+            "affected_streams": ["stream-42"],
+            "description": "Latency spiked from 80ms to 420ms over the past 15 minutes."
+          },
+          "expected_outcome": "Incident created. Incident ID returned. Moved to triage step."
+        },
+        {
+          "step": 4,
+          "screen": "incident_response_workflow",
+          "action": "User assigns incident to on-call engineer, adds runbook link.",
+          "input": {
+            "assignee": "eng-jane-doe",
+            "runbook_link": "https://wiki.example.com/runbooks/stream-latency",
+            "triage_notes": "Checked upstream provider. Congestion confirmed."
+          },
+          "expected_outcome": "Triage saved. Moved to resolve step."
+        },
+        {
+          "step": 5,
+          "screen": "incident_response_workflow",
+          "action": "User submits resolution with summary and root cause.",
+          "input": {
+            "resolution_summary": "Upstream provider resolved congestion. Latency returned to baseline.",
+            "root_cause": "Third-party Dependency",
+            "follow_up_required": false
+          },
+          "expected_outcome": "Resolution submitted for approval. Banner: 'Resolution pending approval.'"
+        },
+        {
+          "step": 6,
+          "screen": "incident_response_workflow",
+          "action": "Approver reviews and grants approval.",
+          "expected_outcome": "Incident status changes to 'Resolved'. Audit log entry created."
+        },
+        {
+          "step": 7,
+          "screen": "audit_log",
+          "action": "User navigates to Audit Log to verify the complete incident record.",
+          "expected_outcome": "Audit log shows all events: Created, Assigned, Resolved, Approval Granted."
+        }
+      ]
+    },
+
+    "edge_case_path": {
+      "id": "edge_case_path",
+      "name": "Edge Case Path — Approval Rejected, Re-submission",
+      "description": "An approver rejects the first resolution. The operator revises and resubmits.",
+      "steps": [
+        {
+          "step": 1,
+          "screen": "incident_response_workflow",
+          "action": "Operator submits resolution. Approver rejects with reason: 'Root cause unclear.'",
+          "expected_outcome": "Red banner: 'Approval rejected. Reason: Root cause unclear.' Resolution form re-enabled."
+        },
+        {
+          "step": 2,
+          "screen": "incident_response_workflow",
+          "action": "Operator updates resolution summary and changes root cause to 'Infrastructure', resubmits.",
+          "input": {
+            "resolution_summary": "Identified upstream router misconfiguration. Provider corrected routing tables.",
+            "root_cause": "Infrastructure",
+            "follow_up_required": true
+          },
+          "expected_outcome": "Resolution resubmitted. Banner: 'Resolution pending approval.'"
+        },
+        {
+          "step": 3,
+          "screen": "incident_response_workflow",
+          "action": "Approver reviews revised resolution and approves.",
+          "expected_outcome": "Incident resolved. Audit log updated with rejection and re-approval events."
+        }
+      ]
+    },
+
+    "failure_path": {
+      "id": "failure_path",
+      "name": "Failure Path — API Failure During Incident Creation",
+      "description": "The backend returns a 500 error when the user submits a new incident.",
+      "steps": [
+        {
+          "step": 1,
+          "screen": "incident_response_workflow",
+          "action": "User fills in all required fields and clicks 'Create Incident'. API returns 500.",
+          "expected_outcome": "Error banner: 'Failed to submit incident. Retry?' Form data preserved."
+        },
+        {
+          "step": 2,
+          "screen": "incident_response_workflow",
+          "action": "User clicks 'Retry'. API returns 200 on the second attempt.",
+          "expected_outcome": "Incident created successfully. Proceeds to triage step."
+        }
+      ]
+    },
+
+    "invalid_input_path": {
+      "id": "invalid_input_path",
+      "name": "Invalid Input Path — Required Fields Missing",
+      "description": "User attempts to submit an incident without filling required fields.",
+      "steps": [
+        {
+          "step": 1,
+          "screen": "incident_response_workflow",
+          "action": "User leaves 'Incident Title' and 'Affected Streams' blank and clicks 'Create Incident'.",
+          "expected_outcome": "Client-side validation fires. Inline errors: 'Title is required.' and 'At least one stream must be selected.' Form not submitted."
+        },
+        {
+          "step": 2,
+          "screen": "incident_response_workflow",
+          "action": "User enters a title exceeding 200 characters.",
+          "expected_outcome": "Inline error: 'Title must be 200 characters or fewer.' Character count shown."
+        },
+        {
+          "step": 3,
+          "screen": "incident_response_workflow",
+          "action": "User enters an invalid URL in the Runbook URL field.",
+          "expected_outcome": "Inline error: 'Please enter a valid URL.' Form not submitted until corrected."
+        }
+      ]
+    },
+
+    "timeout_slow_response_path": {
+      "id": "timeout_slow_response_path",
+      "name": "Timeout / Slow Response Path — Stream Data Delayed",
+      "description": "The stream health API is slow or times out.",
+      "steps": [
+        {
+          "step": 1,
+          "screen": "stream_health_monitor",
+          "action": "User loads the dashboard. API call to /api/streams takes more than 10 seconds.",
+          "expected_outcome": "Loading skeleton displayed. Spinner visible in header. No stale data shown."
+        },
+        {
+          "step": 2,
+          "screen": "stream_health_monitor",
+          "action": "Request times out (30 seconds exceeded).",
+          "expected_outcome": "Error banner: 'Failed to load stream data. Retry?' Skeleton replaced with empty state."
+        },
+        {
+          "step": 3,
+          "screen": "stream_health_monitor",
+          "action": "User clicks 'Retry'. API responds within normal time.",
+          "expected_outcome": "Stream list loads and renders correctly."
+        }
+      ]
+    }
+  },
+
+  "validation_rules": {
+    "incident_title": { "required": true, "max_length": 200 },
+    "incident_description": { "required": false, "max_length": 2000 },
+    "resolution_summary": { "required": true, "max_length": 2000 },
+    "runbook_link": { "required": false, "format": "url" },
+    "affected_streams": { "required": true, "min_items": 1 }
+  },
+
+  "governance": {
+    "policy_engine": "metadata-policy",
+    "human_approval_required_for": ["Resolve Incident"],
+    "runtime_drift_detection": true
+  },
+
+  "environments": [
+    { "name": "local", "auto_deploy": false, "approval_required": false },
+    { "name": "preview", "auto_deploy": true, "approval_required": false },
+    { "name": "prod", "auto_deploy": false, "approval_required": true }
+  ]
+}
